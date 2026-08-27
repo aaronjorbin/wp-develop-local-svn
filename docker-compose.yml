@@ -1,0 +1,10 @@
+services:
+  svn:
+    build: .
+    ports:
+      - "3690:3690"
+    volumes:
+      - svn-data:/svn
+
+volumes:
+  svn-data:
