@@ -12,7 +12,7 @@ Docker image running a local SVN server for testing hook scripts.
   - Copies the hook scripts from `hooks/` into the repo's `hooks/` directory.
   - Imports a standard `trunk/`, `branches/`, `tags/` layout as the initial commit.
   - Sets `anon-access = write` in `svnserve.conf` for easy local testing (no auth required).
-- `svnserve` is then started in the foreground on port 3690.
+- `svnserve` is then started in the foreground on port 15705.
 
 ### Hook scripts (`hooks/`)
 
@@ -46,7 +46,7 @@ Without `--override`, existing hook files are left untouched and reported as ski
 docker compose up -d --build
 ```
 
-This builds the image, starts the container, and exposes the SVN server on `localhost:3690`. Repo data persists in the `svn-data` named volume across restarts.
+This builds the image, starts the container, and exposes the SVN server on `localhost:15705`. Repo data persists in the `svn-data` named volume across restarts.
 
 To stop:
 
@@ -65,7 +65,7 @@ docker compose down -v
 Checkout:
 
 ```sh
-svn co svn://localhost:3690/repo
+svn co svn://localhost:15705/repo
 ```
 
 Trigger hooks by committing, locking, etc. as normal:
@@ -106,7 +106,7 @@ From there:
 
 ```sh
 docker build -t svn-hook-test .
-docker run -d --name svn-hook-test -p 3690:3690 svn-hook-test
+docker run -d --name svn-hook-test -p 15705:15705 svn-hook-test
 ```
 
 ## License

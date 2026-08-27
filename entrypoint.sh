@@ -3,4 +3,4 @@ set -e
 
 /usr/local/bin/create-repo.sh
 
-exec svnserve -d --foreground -r /svn --listen-port 3690
+exec svnserve -d --foreground -r /svn --listen-port 15705

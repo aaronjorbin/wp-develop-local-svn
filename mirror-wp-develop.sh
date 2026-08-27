@@ -16,7 +16,7 @@ set -e
 SERVICE="${SERVICE:-svn}"
 REPO_PATH_IN_CONTAINER="${REPO_PATH:-/svn/repo}"
 SOURCE_URL="https://develop.svn.wordpress.org"
-TARGET_URL="svn://localhost:3690/repo"
+TARGET_URL="svn://localhost:15705/repo"
 
 command -v svnsync >/dev/null 2>&1 || { echo "svnsync not found locally. Install subversion (e.g. 'brew install subversion')." >&2; exit 1; }
 

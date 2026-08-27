@@ -23,6 +23,6 @@ COPY create-repo.sh /usr/local/bin/create-repo.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/create-repo.sh /usr/local/bin/entrypoint.sh /hooks/*
 
-EXPOSE 3690
+EXPOSE 15705
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
