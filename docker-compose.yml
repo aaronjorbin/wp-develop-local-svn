@@ -2,7 +2,7 @@ services:
   svn:
     build: .
     ports:
-      - "3690:3690"
+      - "15705:15705"
     volumes:
       - svn-data:/svn
 
