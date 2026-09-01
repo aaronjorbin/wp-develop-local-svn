@@ -2,17 +2,48 @@
 
 Docker image running a local SVN server for testing hook scripts.
 
+## Quick start (Makefile)
+
+The `Makefile` is the intended way to interact with this repo:
+
+```sh
+make start     # up + sync + refresh: container running with the working repo ready
+make up        # build (if needed) and start the container
+make sync      # svnsync the mirror repo with develop.svn.wordpress.org (resumable)
+make refresh   # wipe the working repo, replace it with a clean copy of the mirror
+make fresh     # sync then refresh, in one step
+make down      # stop the container (repo data persists in the volume)
+make clean     # stop the container and delete all repo data
+make shell     # shell into the container
+make logs      # follow container logs
+make help      # list all targets
+```
+
+### Two repos
+
+The container serves two repositories on `localhost:15705`:
+
+- **`svn://localhost:15705/mirror`** — an `svnsync` mirror of
+  `https://develop.svn.wordpress.org`. Only `make sync` writes to it. Don't
+  check it out or commit to it directly.
+- **`svn://localhost:15705/repo`** — the working repo. Check this out and test
+  hooks against it. `make refresh` throws it away and rebuilds it from the
+  mirror (`svnadmin hotcopy`, then the svnsync revprops are stripped, a fresh
+  UUID is assigned, and the hooks from `hooks/` are reinstalled).
+
+Typical loop: `make up` once, `make sync` (long the first time, incremental
+after), then `make refresh` whenever you want the working repo to match the
+mirror again. `make fresh` does the last two together.
+
 ## Overview
 
 - Debian bookworm base with `subversion`, `apache2` + `libapache2-mod-svn`, and `php-cli`.
 - `svnlook` is installed at `/usr/bin/svnlook` (part of the `subversion` package).
 - `php` is symlinked to `/usr/local/bin/php`.
-- On container start, `entrypoint.sh` runs `create-repo.sh`, which:
-  - Creates a repo at `/svn/repo` with `svnadmin create` (only if it doesn't already exist — persists across restarts via the `svn-data` volume).
-  - Copies the hook scripts from `hooks/` into the repo's `hooks/` directory.
-  - Imports a standard `trunk/`, `branches/`, `tags/` layout as the initial commit.
-  - Sets `anon-access = write` in `svnserve.conf` for easy local testing (no auth required).
-- `svnserve` is then started in the foreground on port 15705.
+- On container start, `entrypoint.sh` runs `create-repo.sh`, which (only when they don't already exist — both persist across restarts via the `svn-data` volume):
+  - Creates the working repo at `/svn/repo`, copies the hooks from `hooks/` into it, imports a standard `trunk/`, `branches/`, `tags/` layout as the initial commit, and sets `anon-access = write`.
+  - Creates the mirror repo at `/svn/mirror` with `anon-access = write` and an allow-all `pre-revprop-change` hook (svnsync needs to write revprops).
+- `svnserve` is then started in the foreground on port 15705, serving both repos (`-r /svn`).
 
 ### Hook scripts (`hooks/`)
 
@@ -38,27 +69,17 @@ At build time `Dockerfile` copies `hooks/` into the image; on first repo creatio
 ./scaffold-scripts.sh --help                # usage and valid hook names
 ```
 
-Without `--override`, existing hook files are left untouched and reported as skipped. Created files are made executable. Run this before `docker compose up --build` on a fresh checkout, otherwise the image ships with no hooks.
+Without `--override`, existing hook files are left untouched and reported as skipped. Created files are made executable. Run this before `make up` on a fresh checkout, otherwise the image ships with no hooks.
 
 ## Starting the server
 
 ```sh
-docker compose up -d --build
+make up
 ```
 
-This builds the image, starts the container, and exposes the SVN server on `localhost:15705`. Repo data persists in the `svn-data` named volume across restarts.
+This builds the image, starts the container, and exposes the SVN server on `localhost:15705`. Repo data (both repos) persists in the `svn-data` named volume across restarts.
 
-To stop:
-
-```sh
-docker compose down
-```
-
-To wipe the repo and start fresh:
-
-```sh
-docker compose down -v
-```
+`make down` stops the container; `make clean` (`docker compose down -v`) also deletes all repo data.
 
 ## Using the repo
 
@@ -77,17 +98,24 @@ svn commit
 
 ## Mirroring WordPress develop.svn
 
-`mirror-wp-develop.sh` runs on your local machine (not in the container) and turns the repo into an `svnsync` mirror of `https://develop.svn.wordpress.org`. It requires a local `svn`/`svnsync` client (`brew install subversion` on macOS) and a running container (`docker compose up -d`).
-
-It wipes whatever is currently in `/svn/repo`, so run it after the server is up but before you've committed anything you want to keep:
+`make sync` (which runs `mirror-wp-develop.sh` on your local machine, not in the container) keeps the **mirror** repo in sync with `https://develop.svn.wordpress.org` via `svnsync`. It needs a local `svn`/`svnsync` client (`brew install subversion` on macOS) and a running container (`make up`).
 
 ```sh
-./mirror-wp-develop.sh
+make sync                    # first run inits the svnsync link, then syncs
+STEAL_LOCK=1 make sync       # after an unclean kill left a stale sync lock
 ```
 
-Full history is large and this can take a long time. It's safe to Ctrl-C and re-run later — svnsync tracks the last-synced revision and resumes where it left off.
+Full history is large and the first sync can take a long time. It's safe to Ctrl-C and re-run — svnsync tracks the last-synced revision and resumes. `make sync` never touches the working repo.
 
-The script temporarily replaces `pre-revprop-change` with an allow-all version (svnsync needs to set `svn:sync-*` / `svn:author` / `svn:date` revprops) and restores the real hook from `hooks/pre-revprop-change` once the sync finishes. Since the mirror comes with its own history/layout, the synthetic trunk/branches/tags skeleton from initial repo creation is discarded when this runs.
+To get the synced content into the working repo:
+
+```sh
+make refresh    # wipe /svn/repo, hotcopy /svn/mirror into it, strip svnsync
+                # revprops, assign a fresh UUID, reinstall hooks from hooks/
+make fresh      # make sync + make refresh
+```
+
+`make refresh` throws away anything you committed to the working repo, by design.
 
 ## Debugging inside the container
 

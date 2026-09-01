@@ -16,12 +16,15 @@ RUN [ -x /usr/bin/svnlook ] || ln -s "$(command -v svnlook)" /usr/bin/svnlook
 RUN ln -sf "$(command -v php)" /usr/local/bin/php
 
 ENV REPO_PATH=/svn/repo
+ENV MIRROR_PATH=/svn/mirror
 
 RUN mkdir -p /svn
 COPY hooks/ /hooks/
 COPY create-repo.sh /usr/local/bin/create-repo.sh
+COPY refresh-working-repo.sh /usr/local/bin/refresh-working-repo.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/create-repo.sh /usr/local/bin/entrypoint.sh /hooks/*
+RUN chmod +x /usr/local/bin/create-repo.sh /usr/local/bin/refresh-working-repo.sh /usr/local/bin/entrypoint.sh \
+    && find /hooks -type f -exec chmod +x {} +
 
 EXPOSE 15705
 
